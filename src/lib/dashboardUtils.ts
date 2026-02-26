@@ -183,6 +183,107 @@ export function getSourceSummaries(
     .sort((a, b) => b.count - a.count);
 }
 
+export function getRecruiterDetail(data: RecruitmentEntry[], name: string) {
+  const entries = data.filter(
+    (d) => d.recruiterName.trim() === name.trim()
+  );
+  const totalPositions = entries.length;
+  const closed = entries.filter(
+    (e) => e.positionStatus.toLowerCase() === "closed"
+  ).length;
+  const open = entries.filter(
+    (e) => e.positionStatus.toLowerCase() === "open"
+  ).length;
+  const hold = entries.filter(
+    (e) => e.positionStatus.toLowerCase() === "hold"
+  ).length;
+  const totalCVs = entries.reduce((s, e) => s + e.totalCVs, 0);
+  const totalInterviewed = entries.reduce(
+    (s, e) => s + e.totalInterviewed,
+    0
+  );
+  const totalOffered = entries.reduce((s, e) => s + e.totalOffered, 0);
+  const totalAccepted = entries.reduce(
+    (s, e) => s + e.totalAcceptedOffer,
+    0
+  );
+  const totalJoined = entries.reduce((s, e) => s + e.totalJoined, 0);
+
+  const cvToInterview = totalCVs
+    ? Math.round((totalInterviewed / totalCVs) * 100)
+    : 0;
+  const interviewToOffer = totalInterviewed
+    ? Math.round((totalOffered / totalInterviewed) * 100)
+    : 0;
+  const offerToJoin = totalOffered
+    ? Math.round((totalJoined / totalOffered) * 100)
+    : 0;
+
+  // Department distribution
+  const deptCounts = new Map<string, number>();
+  entries.forEach((e) => {
+    const d = e.department.trim() || "Other";
+    deptCounts.set(d, (deptCounts.get(d) || 0) + 1);
+  });
+  const departments = Array.from(deptCounts.entries())
+    .map(([dept, count]) => ({ department: dept, count }))
+    .sort((a, b) => b.count - a.count);
+
+  // Status distribution
+  const statusCounts = new Map<string, number>();
+  entries.forEach((e) => {
+    const s = e.positionStatus.trim() || "Unknown";
+    statusCounts.set(s, (statusCounts.get(s) || 0) + 1);
+  });
+  const statuses = Array.from(statusCounts.entries())
+    .map(([status, count]) => ({ status, count }))
+    .sort((a, b) => b.count - a.count);
+
+  // Source distribution
+  const sourceCounts = new Map<string, number>();
+  entries.forEach((e) => {
+    const src = e.source.trim() || e.sourceName.trim() || "Not Specified";
+    sourceCounts.set(src, (sourceCounts.get(src) || 0) + 1);
+  });
+  const sources = Array.from(sourceCounts.entries())
+    .map(([source, count]) => ({ source, count }))
+    .sort((a, b) => b.count - a.count);
+
+  // Avg days to offer (for entries that have numeric values)
+  const daysToOffer = entries
+    .map((e) => parseInt(e.actualDaysReqToOffer, 10))
+    .filter((n) => !isNaN(n) && n > 0);
+  const avgDaysToOffer = daysToOffer.length
+    ? Math.round(
+        daysToOffer.reduce((s, n) => s + n, 0) / daysToOffer.length
+      )
+    : null;
+
+  return {
+    name,
+    entries,
+    totalPositions,
+    closed,
+    open,
+    hold,
+    closureRate: totalPositions
+      ? Math.round((closed / totalPositions) * 100)
+      : 0,
+    totalCVs,
+    totalInterviewed,
+    totalOffered,
+    totalAccepted,
+    totalJoined,
+    cvToInterview,
+    interviewToOffer,
+    offerToJoin,
+    departments,
+    statuses,
+    sources,
+    avgDaysToOffer,
+  };
+}
+
 export function getBudgetSummary(data: RecruitmentEntry[]) {
   const withinBudget = data.filter(
     (d) => d.costBucket.toLowerCase().includes("within")

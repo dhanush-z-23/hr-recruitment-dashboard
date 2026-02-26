@@ -10,7 +10,9 @@ import {
   getMonthSummaries,
   getSourceSummaries,
   getBudgetSummary,
+  getRecruiterDetail,
 } from "@/lib/dashboardUtils";
+import type { RecruitmentEntry } from "@/types/dashboard";
 import {
   BarChart,
   Bar,
@@ -193,6 +195,263 @@ function Section({
   );
 }
 
+/* ─── Recruiter Detail Slide-Over ─── */
+function RecruiterDetailPanel({
+  data,
+  recruiterName,
+  onClose,
+}: {
+  data: RecruitmentEntry[];
+  recruiterName: string;
+  onClose: () => void;
+}) {
+  const detail = getRecruiterDetail(data, recruiterName);
+  const funnelStages = [
+    { label: "CVs Screened", value: detail.totalCVs, color: "#4f46e5" },
+    { label: "Interviewed", value: detail.totalInterviewed, color: "#7c3aed" },
+    { label: "Offered", value: detail.totalOffered, color: "#059669" },
+    { label: "Accepted", value: detail.totalAccepted, color: "#0891b2" },
+    { label: "Joined", value: detail.totalJoined, color: "#d97706" },
+  ];
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40"
+        onClick={onClose}
+      />
+      {/* Panel */}
+      <div className="fixed right-0 top-0 bottom-0 w-full max-w-2xl bg-white shadow-2xl z-50 overflow-y-auto animate-in slide-in-from-right">
+        {/* Header */}
+        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
+          <div>
+            <h2 className="text-xl font-bold text-gray-900">
+              {detail.name}
+            </h2>
+            <p className="text-sm text-gray-500">Recruiter Performance Report</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-500 transition-colors text-lg"
+          >
+            &times;
+          </button>
+        </div>
+
+        <div className="p-6 space-y-6">
+          {/* Overview Cards */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-indigo-50 rounded-xl p-4 text-center">
+              <p className="text-3xl font-bold text-indigo-700">{detail.totalPositions}</p>
+              <p className="text-xs text-indigo-600 font-medium mt-1">Total Positions</p>
+            </div>
+            <div className="bg-emerald-50 rounded-xl p-4 text-center">
+              <p className="text-3xl font-bold text-emerald-700">{detail.closed}</p>
+              <p className="text-xs text-emerald-600 font-medium mt-1">Closed</p>
+            </div>
+            <div className="bg-amber-50 rounded-xl p-4 text-center">
+              <p className="text-3xl font-bold text-amber-700">{detail.closureRate}%</p>
+              <p className="text-xs text-amber-600 font-medium mt-1">Closure Rate</p>
+            </div>
+          </div>
+
+          {/* Conversion Rates */}
+          <div className="bg-gray-50 rounded-xl p-5">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">Conversion Funnel</h3>
+            <div className="grid grid-cols-5 gap-2">
+              {funnelStages.map((stage, i) => {
+                const maxVal = detail.totalCVs || 1;
+                const pct = Math.round((stage.value / maxVal) * 100);
+                return (
+                  <div key={i} className="text-center">
+                    <div className="h-20 flex items-end justify-center mb-2">
+                      <div
+                        className="w-10 rounded-t-lg transition-all"
+                        style={{
+                          height: `${Math.max(pct, 8)}%`,
+                          backgroundColor: stage.color,
+                          opacity: 0.85,
+                        }}
+                      />
+                    </div>
+                    <p className="text-lg font-bold" style={{ color: stage.color }}>
+                      {stage.value}
+                    </p>
+                    <p className="text-[10px] text-gray-500 font-medium leading-tight">
+                      {stage.label}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex justify-between mt-4 pt-3 border-t border-gray-200">
+              <div className="text-center flex-1">
+                <p className="text-lg font-bold text-indigo-600">{detail.cvToInterview}%</p>
+                <p className="text-[10px] text-gray-400">CV &rarr; Interview</p>
+              </div>
+              <div className="text-center flex-1">
+                <p className="text-lg font-bold text-purple-600">{detail.interviewToOffer}%</p>
+                <p className="text-[10px] text-gray-400">Interview &rarr; Offer</p>
+              </div>
+              <div className="text-center flex-1">
+                <p className="text-lg font-bold text-emerald-600">{detail.offerToJoin}%</p>
+                <p className="text-[10px] text-gray-400">Offer &rarr; Join</p>
+              </div>
+              {detail.avgDaysToOffer !== null && (
+                <div className="text-center flex-1">
+                  <p className="text-lg font-bold text-cyan-600">{detail.avgDaysToOffer}d</p>
+                  <p className="text-[10px] text-gray-400">Avg Days to Offer</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Status + Department + Source Row */}
+          <div className="grid grid-cols-3 gap-4">
+            {/* Status */}
+            <div className="bg-white border border-gray-100 rounded-xl p-4">
+              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Status</h4>
+              <div className="space-y-2">
+                {detail.statuses.map((s, i) => (
+                  <div key={i} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-2 h-2 rounded-full"
+                        style={{
+                          backgroundColor:
+                            STATUS_COLORS[s.status] || COLORS[i % COLORS.length],
+                        }}
+                      />
+                      <span className="text-xs text-gray-700">{s.status}</span>
+                    </div>
+                    <span className="text-xs font-bold text-gray-900">{s.count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Department */}
+            <div className="bg-white border border-gray-100 rounded-xl p-4">
+              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Departments</h4>
+              <div className="space-y-2">
+                {detail.departments.map((d, i) => (
+                  <div key={i} className="flex items-center justify-between">
+                    <span className="text-xs text-gray-700 truncate">{d.department}</span>
+                    <span className="text-xs font-bold text-gray-900">{d.count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Sources */}
+            <div className="bg-white border border-gray-100 rounded-xl p-4">
+              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Sources</h4>
+              <div className="space-y-2">
+                {detail.sources.map((s, i) => (
+                  <div key={i} className="flex items-center justify-between">
+                    <span className="text-xs text-gray-700 truncate">{s.source}</span>
+                    <span className="text-xs font-bold text-gray-900">{s.count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Mini funnel chart using recharts */}
+          <div className="bg-white border border-gray-100 rounded-xl p-5">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">
+              Pipeline per Position
+            </h3>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart
+                data={detail.entries.map((e) => ({
+                  position: e.positionTitle.length > 18
+                    ? e.positionTitle.slice(0, 18) + "..."
+                    : e.positionTitle,
+                  CVs: e.totalCVs,
+                  Interviewed: e.totalInterviewed,
+                  Offered: e.totalOffered,
+                  Joined: e.totalJoined,
+                }))}
+                barGap={1}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                <XAxis dataKey="position" fontSize={10} stroke="#94a3b8" tickLine={false} />
+                <YAxis fontSize={10} stroke="#94a3b8" tickLine={false} axisLine={false} />
+                <Tooltip contentStyle={TOOLTIP_STYLE} />
+                <Legend iconType="circle" iconSize={6} wrapperStyle={{ fontSize: "11px" }} />
+                <Bar dataKey="CVs" fill="#4f46e5" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Interviewed" fill="#7c3aed" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Offered" fill="#059669" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Joined" fill="#d97706" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Position List */}
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">
+              Assigned Positions ({detail.entries.length})
+            </h3>
+            <div className="rounded-xl border border-gray-100 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    {["#", "Position", "Dept", "Status", "CVs", "Interviewed", "Offered", "Joined"].map(
+                      (h) => (
+                        <th
+                          key={h}
+                          className="text-left py-2.5 px-3 text-gray-500 font-semibold text-[10px] uppercase tracking-wider"
+                        >
+                          {h}
+                        </th>
+                      )
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {detail.entries.map((entry, i) => (
+                    <tr
+                      key={i}
+                      className={`border-t border-gray-50 ${i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}`}
+                    >
+                      <td className="py-2 px-3 text-gray-400 text-xs">{entry.srNo}</td>
+                      <td className="py-2 px-3 text-gray-900 text-xs font-medium max-w-[140px] truncate">
+                        {entry.positionTitle}
+                      </td>
+                      <td className="py-2 px-3 text-gray-600 text-xs">{entry.department}</td>
+                      <td className="py-2 px-3 text-xs">
+                        <span
+                          className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                            entry.positionStatus.toLowerCase() === "closed"
+                              ? "bg-emerald-50 text-emerald-700"
+                              : entry.positionStatus.toLowerCase() === "open"
+                                ? "bg-blue-50 text-blue-700"
+                                : entry.positionStatus.toLowerCase() === "hold"
+                                  ? "bg-amber-50 text-amber-700"
+                                  : "bg-gray-100 text-gray-500"
+                          }`}
+                        >
+                          {entry.positionStatus}
+                        </span>
+                      </td>
+                      <td className="py-2 px-3 text-gray-700 text-xs text-center">{entry.totalCVs || "—"}</td>
+                      <td className="py-2 px-3 text-gray-700 text-xs text-center">{entry.totalInterviewed || "—"}</td>
+                      <td className="py-2 px-3 text-gray-700 text-xs text-center">{entry.totalOffered || "—"}</td>
+                      <td className="py-2 px-3 text-gray-700 text-xs text-center">{entry.totalJoined || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 /* ─── Main Dashboard ─── */
 function Dashboard() {
   const {
@@ -204,6 +463,8 @@ function Dashboard() {
     setAutoRefresh,
     clearData,
   } = useDashboardStore();
+
+  const [selectedRecruiter, setSelectedRecruiter] = useState<string | null>(null);
 
   const refresh = useCallback(() => {
     fetchData();
@@ -353,9 +614,12 @@ function Dashboard() {
             </span>
             <span>
               Top Recruiter:{" "}
-              <strong className="text-white">
+              <button
+                onClick={() => topRecruiter && setSelectedRecruiter(topRecruiter.name)}
+                className="font-bold text-white underline decoration-white/40 hover:decoration-white cursor-pointer transition-colors"
+              >
                 {topRecruiter?.name || "-"}
-              </strong>{" "}
+              </button>{" "}
               ({topRecruiter?.closureRate || 0}% closure)
             </span>
             <span>
@@ -886,9 +1150,12 @@ function Dashboard() {
               {recruiterSummaries.map((r) => (
                 <div key={r.name}>
                   <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-sm font-medium text-gray-700">
+                    <button
+                      onClick={() => setSelectedRecruiter(r.name)}
+                      className="text-sm font-medium text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer text-left transition-colors"
+                    >
                       {r.name}
-                    </span>
+                    </button>
                     <span className="text-sm font-bold text-gray-900">
                       {r.closureRate}%
                     </span>
@@ -954,8 +1221,13 @@ function Dashboard() {
                     key={r.name}
                     className="border-b border-gray-50 hover:bg-indigo-50/30 transition-colors"
                   >
-                    <td className="py-3 px-3 font-semibold text-gray-900">
-                      {r.name}
+                    <td className="py-3 px-3">
+                      <button
+                        onClick={() => setSelectedRecruiter(r.name)}
+                        className="font-semibold text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer transition-colors"
+                      >
+                        {r.name}
+                      </button>
                     </td>
                     <td className="py-3 px-3 text-gray-700">
                       {r.totalPositions}
@@ -1070,8 +1342,13 @@ function Dashboard() {
                     <td className="py-2.5 px-3 text-gray-600 text-xs max-w-[120px] truncate">
                       {entry.candidateSelected || "—"}
                     </td>
-                    <td className="py-2.5 px-3 text-gray-600 text-xs">
-                      {entry.recruiterName}
+                    <td className="py-2.5 px-3 text-xs">
+                      <button
+                        onClick={() => setSelectedRecruiter(entry.recruiterName.trim())}
+                        className="text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer transition-colors"
+                      >
+                        {entry.recruiterName}
+                      </button>
                     </td>
                     <td className="py-2.5 px-3 text-gray-700 text-xs text-center font-medium">
                       {entry.totalCVs || "—"}
@@ -1105,6 +1382,15 @@ function Dashboard() {
           </p>
         </div>
       </main>
+
+      {/* Recruiter Detail Slide-Over */}
+      {selectedRecruiter && (
+        <RecruiterDetailPanel
+          data={data}
+          recruiterName={selectedRecruiter}
+          onClose={() => setSelectedRecruiter(null)}
+        />
+      )}
     </div>
   );
 }
