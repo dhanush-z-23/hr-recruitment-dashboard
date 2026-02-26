@@ -1,33 +1,87 @@
 import type { RecruitmentEntry } from "@/types/dashboard";
 
-function parseCsvLine(line: string): string[] {
-  const result: string[] = [];
-  let current = "";
+/**
+ * Proper CSV parser that handles:
+ * - Multiline quoted fields (e.g. "Position\nNew / Replacement\n")
+ * - Escaped quotes ("" inside quoted fields)
+ * - Currency symbols, commas inside quoted values
+ * - Formula outputs like #DIV/0!
+ */
+function parseCsvFull(csvText: string): string[][] {
+  const rows: string[][] = [];
+  let currentRow: string[] = [];
+  let currentField = "";
   let inQuotes = false;
+  let i = 0;
 
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
-    if (char === '"') {
-      if (inQuotes && line[i + 1] === '"') {
-        current += '"';
+  while (i < csvText.length) {
+    const char = csvText[i];
+
+    if (inQuotes) {
+      if (char === '"') {
+        if (i + 1 < csvText.length && csvText[i + 1] === '"') {
+          // Escaped quote
+          currentField += '"';
+          i += 2;
+        } else {
+          // End of quoted field
+          inQuotes = false;
+          i++;
+        }
+      } else {
+        // Inside quotes: include everything including newlines
+        currentField += char;
+        i++;
+      }
+    } else {
+      if (char === '"') {
+        inQuotes = true;
+        i++;
+      } else if (char === ",") {
+        currentRow.push(currentField.trim());
+        currentField = "";
+        i++;
+      } else if (char === "\n" || char === "\r") {
+        currentRow.push(currentField.trim());
+        currentField = "";
+        // Skip \r\n combo
+        if (char === "\r" && i + 1 < csvText.length && csvText[i + 1] === "\n") {
+          i++;
+        }
+        if (currentRow.some((f) => f !== "")) {
+          rows.push(currentRow);
+        }
+        currentRow = [];
         i++;
       } else {
-        inQuotes = !inQuotes;
+        currentField += char;
+        i++;
       }
-    } else if (char === "," && !inQuotes) {
-      result.push(current.trim());
-      current = "";
-    } else {
-      current += char;
     }
   }
-  result.push(current.trim());
-  return result;
+
+  // Push last field and row
+  currentRow.push(currentField.trim());
+  if (currentRow.some((f) => f !== "")) {
+    rows.push(currentRow);
+  }
+
+  return rows;
 }
 
 function parseNum(val: string): number {
-  const n = parseInt(val, 10);
+  if (!val) return 0;
+  // Remove currency symbols, commas, spaces
+  const cleaned = val.replace(/[₹,\s]/g, "");
+  const n = parseInt(cleaned, 10);
   return isNaN(n) ? 0 : n;
+}
+
+function parsePercent(val: string): string {
+  if (!val || val.includes("#DIV/0!") || val.includes("#REF!") || val.includes("#N/A")) {
+    return "N/A";
+  }
+  return val;
 }
 
 function buildCsvUrl(url: string): string {
@@ -49,141 +103,105 @@ function buildCsvUrl(url: string): string {
 }
 
 export function parseCsv(csvText: string): RecruitmentEntry[] {
-  const lines = csvText.split("\n").filter((line) => line.trim());
-  if (lines.length < 2) return [];
+  const allRows = parseCsvFull(csvText);
+  if (allRows.length < 2) return [];
 
-  const headers = parseCsvLine(lines[0]).map((h) => h.toLowerCase().trim());
+  // Normalize headers: replace newlines with spaces, lowercase, trim
+  const rawHeaders = allRows[0];
+  const headers = rawHeaders.map((h) =>
+    h
+      .replace(/\r?\n/g, " ")
+      .replace(/\s+/g, " ")
+      .toLowerCase()
+      .trim()
+  );
 
-  return lines
+  // Log for debugging (visible in browser console)
+  console.log(`[HR Dashboard] Parsed ${allRows.length - 1} data rows, ${headers.length} columns`);
+  console.log(`[HR Dashboard] Headers:`, headers);
+
+  return allRows
     .slice(1)
-    .map((line) => {
-      const values = parseCsvLine(line);
+    .map((values) => {
       const row: Record<string, string> = {};
       headers.forEach((header, i) => {
         row[header] = values[i] || "";
       });
 
+      // Flexible getter that tries multiple header variations
       const get = (...keys: string[]) => {
         for (const k of keys) {
+          // Try exact match
           if (row[k] !== undefined && row[k] !== "") return row[k];
+          // Try normalized match (collapse whitespace)
+          const normalized = k.replace(/\s+/g, " ").trim();
+          if (row[normalized] !== undefined && row[normalized] !== "")
+            return row[normalized];
+        }
+        // Try partial match as fallback
+        for (const k of keys) {
+          for (const header of headers) {
+            if (header.includes(k) && row[header] !== undefined && row[header] !== "") {
+              return row[header];
+            }
+          }
         }
         return "";
       };
 
       return {
-        srNo: get("sr no.", "sr no", "s.no"),
-        positionTitle: get("position title", "position", "title", "role"),
-        department: get("department", "dept"),
-        location: get("location", "city"),
+        srNo: get("sr no.", "sr no"),
+        positionTitle: get("position title"),
+        department: get("department"),
+        location: get("location"),
         salaryBudget: get("salary budget (per annum)", "salary budget"),
         offeredSalary: get("offered salary (per annum)", "offered salary"),
         overBudget: get("over budget"),
-        costBucket: get("cost of hiring bucket", "cost bucket"),
-        positionReceivedDate: get(
-          "position received by hr",
-          "position received"
-        ),
+        costBucket: get("cost of hiring bucket"),
+        positionReceivedDate: get("position received by hr"),
         positionReceivedMonth: parseNum(
-          get("position received by hr (month)", "month")
+          get("position received by hr (month)")
         ),
         postedEmployeeReferral: get("posted employee referral"),
-        totalPositions: parseNum(get("total no of positions", "total positions")),
-        vacantPositions: parseNum(
-          get("no of positions vacant", "vacant positions")
-        ),
-        approved: get("position approved yes/no", "approved"),
-        newOrReplacement: get(
-          "position\nnew / replacement\n",
-          "position\nnew / replacement",
-          "new / replacement",
-          "new/replacement"
-        ),
-        exitingStaff: get(
-          "if replacement exiting staff (name)",
-          "exiting staff"
-        ),
+        totalPositions: parseNum(get("total no of positions")),
+        vacantPositions: parseNum(get("no of positions vacant")),
+        approved: get("position approved yes/no"),
+        newOrReplacement: get("position new / replacement"),
+        exitingStaff: get("if replacement exiting staff (name)"),
         reasonForExit: get("reason for exit"),
         hiringManager: get("hiring manager"),
         skipLevelManager: get("skip level hiring manager"),
         positionStatus: get("position status (dropdown)", "position status"),
-        candidateSelected: get(
-          "name of candidate selected",
-          "candidate selected"
-        ),
-        candidateStatus: get(
-          "candidate status (from dropdown)",
-          "candidate status"
-        ),
-        doj: get("doj\ndd/mm/yy", "doj"),
+        candidateSelected: get("name of candidate selected"),
+        candidateStatus: get("candidate status (from dropdown)", "candidate status"),
+        doj: get("doj dd/mm/yy", "doj"),
         monthOfJoining: get("month of joining"),
         internalExternal: get("internal/external", "internal/ external"),
         source: get("source", " source"),
         sourceName: get("name of the source"),
-        offerMailDate: get(
-          "date of the offer mail send to the candidate",
-          "offer date"
-        ),
-        referralDate: get(
-          "date when candidate was referred by employee",
-          "referral date"
-        ),
+        offerMailDate: get("date of the offer mail send to the candidate"),
+        referralDate: get("date when candidate was referred by employee"),
         comments: get("comments"),
-        actualDaysReqToOffer: get(
-          "actual days - req to offer",
-          "actual days req to offer"
-        ),
-        targetStatusReqToOffer: get(
-          "target status - req to offer",
-          "target status req to offer"
-        ),
-        actualDaysReqToDoj: get(
-          "actual days req to doj",
-          "actual days - req to doj"
-        ),
-        targetStatusReqToDoj: get(
-          "target status - req to doj",
-          "target status req to doj"
-        ),
-        recruiterName: get("recruiter name", "recruiter"),
-        totalCVs: parseNum(
-          get("total no of cvs provided", "total cvs provided", "total cvs")
-        ),
-        totalInterviewed: parseNum(
-          get(
-            "total no of candidates interviewed",
-            "total interviewed",
-            "candidates interviewed"
-          )
-        ),
+        actualDaysReqToOffer: get("actual days - req to offer"),
+        targetStatusReqToOffer: get("target status - req to offer"),
+        actualDaysReqToDoj: get("actual days req to doj"),
+        targetStatusReqToDoj: get("target status - req to doj"),
+        recruiterName: get("recruiter name"),
+        totalCVs: parseNum(get("total no of cvs provided")),
+        totalInterviewed: parseNum(get("total no of candidates interviewed")),
         r1: parseNum(get("r1")),
         r2: parseNum(get("r2")),
         r3: parseNum(get("r3")),
         r4: parseNum(get("r4")),
-        totalOffered: parseNum(
-          get(
-            "total no of candidates offered",
-            "total offered",
-            "candidates offered"
-          )
-        ),
+        totalOffered: parseNum(get("total no of candidates offered")),
         totalAcceptedOffer: parseNum(
-          get(
-            "total no of candidates accepted offer",
-            "total accepted offer",
-            "accepted offer"
-          )
+          get("total no of candidates accepted offer")
         ),
-        totalJoined: parseNum(
-          get(
-            "total no of candidates joined",
-            "total joined",
-            "candidates joined"
-          )
-        ),
-        cvToSelectionRatio: get("cv to selection ratio"),
-        interviewToOfferRatio: get("interview to offer ratio"),
-        offerToAcceptanceRatio: get("offer to acceptance ratio"),
-        consultantCost: get("consultant cost / referral cost", "consultant cost"),
+        totalJoined: parseNum(get("total no of candidates joined")),
+        cvToSelectionRatio: parsePercent(get("cv to selection ratio")),
+        interviewToOfferRatio: parsePercent(get("interview to offer ratio")),
+        offerToAcceptanceRatio: parsePercent(get("offer to acceptance ratio")),
+        consultantCost: get("consultant cost / referral cost"),
       };
     })
     .filter((entry) => entry.srNo || entry.positionTitle);

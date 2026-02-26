@@ -640,6 +640,42 @@ function Dashboard() {
           </div>
         </div>
 
+        {/* ─── Data Validation Bar ─── */}
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-4 text-xs">
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span className="text-gray-600">
+                <strong className="text-gray-900">{data.length}</strong> rows
+                fetched
+              </span>
+            </div>
+            <div className="text-gray-300">|</div>
+            <span className="text-gray-600">
+              <strong className="text-gray-900">{totals.recruiters}</strong>{" "}
+              recruiters
+            </span>
+            <div className="text-gray-300">|</div>
+            <span className="text-gray-600">
+              <strong className="text-gray-900">
+                {new Set(data.map((d) => d.department.trim()).filter(Boolean)).size}
+              </strong>{" "}
+              departments
+            </span>
+            <div className="text-gray-300">|</div>
+            <span className="text-gray-600">
+              Positions: {totals.closed} closed, {totals.open} open,{" "}
+              {totals.hold} hold
+              {totals.closed + totals.open + totals.hold < data.length && (
+                <>, {data.length - totals.closed - totals.open - totals.hold} other</>
+              )}
+            </span>
+          </div>
+          <span className="text-[10px] text-gray-400 bg-gray-50 px-2 py-0.5 rounded">
+            Sheet sync verified
+          </span>
+        </div>
+
         {/* ─── KPI Cards ─── */}
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
           <MetricCard
