@@ -25,27 +25,39 @@ import {
   Cell,
   AreaChart,
   Area,
+  LineChart,
+  Line,
 } from "recharts";
 
 const COLORS = [
-  "#6366f1",
-  "#34d399",
-  "#fbbf24",
-  "#f87171",
-  "#8b5cf6",
-  "#60a5fa",
-  "#fb923c",
-  "#a3e635",
-  "#e879f9",
-  "#2dd4bf",
+  "#4f46e5",
+  "#0891b2",
+  "#059669",
+  "#d97706",
+  "#dc2626",
+  "#7c3aed",
+  "#0284c7",
+  "#65a30d",
+  "#ea580c",
+  "#db2777",
 ];
 
 const STATUS_COLORS: Record<string, string> = {
-  Closed: "#34d399",
-  Open: "#60a5fa",
-  Hold: "#fbbf24",
+  Closed: "#059669",
+  Open: "#2563eb",
+  Hold: "#d97706",
 };
 
+const TOOLTIP_STYLE = {
+  backgroundColor: "#fff",
+  border: "1px solid #e5e7eb",
+  borderRadius: "10px",
+  color: "#111827",
+  boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+  fontSize: "13px",
+};
+
+/* ─── Setup Screen ─── */
 function SheetSetup() {
   const { sheetUrl, setSheetUrl, fetchData, loading, error } =
     useDashboardStore();
@@ -57,40 +69,48 @@ function SheetSetup() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center p-6">
-      <div className="max-w-2xl w-full">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">
-            HR Recruitment Dashboard
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center p-6">
+      <div className="max-w-xl w-full">
+        <div className="text-center mb-10">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-indigo-600 text-white text-2xl font-bold mb-4">
+            HR
+          </div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Recruitment Dashboard
           </h1>
-          <p className="text-gray-400 text-lg">
-            Connect your Google Sheet to visualize hiring data
+          <p className="text-gray-500">
+            Connect your Google Sheet to get real-time hiring insights
           </p>
         </div>
 
-        <div className="bg-gray-900 rounded-2xl p-8 border border-gray-800">
-          <h2 className="text-xl font-semibold text-white mb-6">
-            Connect Google Sheet
-          </h2>
+        <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-200">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Google Sheet URL
+          </label>
+          <input
+            type="text"
+            value={inputUrl}
+            onChange={(e) => setInputUrl(e.target.value)}
+            placeholder="https://docs.google.com/spreadsheets/d/e/..."
+            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+          />
+          <button
+            onClick={handleConnect}
+            disabled={loading || !inputUrl}
+            className="w-full mt-4 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-semibold rounded-xl transition-colors shadow-sm"
+          >
+            {loading ? "Connecting..." : "Connect & Load Data"}
+          </button>
+          {error && (
+            <p className="text-red-500 text-sm text-center mt-3">{error}</p>
+          )}
 
-          <div className="space-y-4">
-            <input
-              type="text"
-              value={inputUrl}
-              onChange={(e) => setInputUrl(e.target.value)}
-              placeholder="Paste your Google Sheet published URL here..."
-              className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
-            <button
-              onClick={handleConnect}
-              disabled={loading || !inputUrl}
-              className="w-full px-4 py-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-700 disabled:text-gray-500 text-white font-medium rounded-xl transition-colors"
-            >
-              {loading ? "Connecting..." : "Connect & Load Data"}
-            </button>
-            {error && (
-              <p className="text-red-400 text-sm text-center">{error}</p>
-            )}
+          <div className="mt-6 pt-5 border-t border-gray-100">
+            <p className="text-xs text-gray-400 leading-relaxed">
+              Make sure your sheet is published to the web via File &rarr; Share
+              &rarr; Publish to web. The sheet URL should contain
+              &ldquo;/pub&rdquo; or &ldquo;/pubhtml&rdquo;.
+            </p>
           </div>
         </div>
       </div>
@@ -98,39 +118,82 @@ function SheetSetup() {
   );
 }
 
-function StatCard({
+/* ─── Metric Card ─── */
+function MetricCard({
   label,
   value,
   subtext,
-  color = "indigo",
+  icon,
+  trend,
+  accentColor = "#4f46e5",
 }: {
   label: string;
   value: string | number;
   subtext?: string;
-  color?: string;
+  icon: string;
+  trend?: "up" | "down" | "neutral";
+  accentColor?: string;
 }) {
-  const colorClasses: Record<string, string> = {
-    indigo: "from-indigo-600/20 to-indigo-600/5 border-indigo-500/30",
-    green: "from-emerald-600/20 to-emerald-600/5 border-emerald-500/30",
-    purple: "from-purple-600/20 to-purple-600/5 border-purple-500/30",
-    blue: "from-blue-600/20 to-blue-600/5 border-blue-500/30",
-    amber: "from-amber-600/20 to-amber-600/5 border-amber-500/30",
-    rose: "from-rose-600/20 to-rose-600/5 border-rose-500/30",
-    cyan: "from-cyan-600/20 to-cyan-600/5 border-cyan-500/30",
-    teal: "from-teal-600/20 to-teal-600/5 border-teal-500/30",
-  };
-
   return (
-    <div
-      className={`bg-gradient-to-br ${colorClasses[color] || colorClasses.indigo} border rounded-xl p-5`}
-    >
-      <p className="text-gray-400 text-sm font-medium">{label}</p>
-      <p className="text-3xl font-bold text-white mt-1">{value}</p>
-      {subtext && <p className="text-gray-500 text-xs mt-1">{subtext}</p>}
+    <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow">
+      <div className="flex items-start justify-between mb-3">
+        <span className="text-2xl">{icon}</span>
+        {trend && (
+          <span
+            className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+              trend === "up"
+                ? "bg-emerald-50 text-emerald-600"
+                : trend === "down"
+                  ? "bg-red-50 text-red-600"
+                  : "bg-gray-50 text-gray-500"
+            }`}
+          >
+            {trend === "up" ? "Active" : trend === "down" ? "Low" : "Stable"}
+          </span>
+        )}
+      </div>
+      <p
+        className="text-3xl font-bold tracking-tight"
+        style={{ color: accentColor }}
+      >
+        {value}
+      </p>
+      <p className="text-sm font-medium text-gray-600 mt-1">{label}</p>
+      {subtext && (
+        <p className="text-xs text-gray-400 mt-0.5">{subtext}</p>
+      )}
     </div>
   );
 }
 
+/* ─── Section Card Wrapper ─── */
+function Section({
+  title,
+  subtitle,
+  children,
+  className = "",
+}: {
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`bg-white rounded-2xl border border-gray-100 shadow-sm ${className}`}
+    >
+      <div className="px-6 pt-6 pb-2">
+        <h2 className="text-base font-semibold text-gray-900">{title}</h2>
+        {subtitle && (
+          <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>
+        )}
+      </div>
+      <div className="px-6 pb-6">{children}</div>
+    </div>
+  );
+}
+
+/* ─── Main Dashboard ─── */
 function Dashboard() {
   const {
     data,
@@ -164,39 +227,56 @@ function Dashboard() {
   const sourceSummaries = getSourceSummaries(data);
   const budgetSummary = getBudgetSummary(data);
 
+  const interviewToOfferRate = totals.totalInterviewed
+    ? Math.round((totals.totalOffered / totals.totalInterviewed) * 100)
+    : 0;
+  const cvToInterviewRate = totals.totalCVs
+    ? Math.round((totals.totalInterviewed / totals.totalCVs) * 100)
+    : 0;
+
+  const topDept = departmentSummaries[0];
+  const topRecruiter = recruiterSummaries[0];
+
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30">
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-gray-950/80 backdrop-blur-xl border-b border-gray-800">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Recruitment Dashboard</h1>
-            <p className="text-gray-500 text-sm">
-              {lastFetched
-                ? `Last updated: ${lastFetched}`
-                : "Loading..."}
-            </p>
+      <header className="sticky top-0 z-20 bg-white/80 backdrop-blur-xl border-b border-gray-200/60">
+        <div className="max-w-[1400px] mx-auto px-6 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-indigo-600 text-white flex items-center justify-center text-xs font-bold">
+              HR
+            </div>
+            <div>
+              <h1 className="text-lg font-bold text-gray-900">
+                Recruitment Dashboard
+              </h1>
+              <p className="text-xs text-gray-400">
+                {lastFetched
+                  ? `Updated ${lastFetched}`
+                  : "Loading data..."}
+              </p>
+            </div>
           </div>
           <div className="flex items-center gap-3">
-            <label className="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
+            <label className="flex items-center gap-2 text-xs text-gray-500 cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={autoRefresh}
                 onChange={(e) => setAutoRefresh(e.target.checked)}
-                className="rounded border-gray-600 bg-gray-800 text-indigo-600"
+                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"
               />
-              Auto-refresh (5m)
+              Auto-refresh
             </label>
             <button
               onClick={refresh}
               disabled={loading}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold transition-colors shadow-sm"
             >
-              {loading ? "Refreshing..." : "Refresh Now"}
+              {loading ? "Refreshing..." : "Refresh"}
             </button>
             <button
               onClick={clearData}
-              className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm font-medium text-gray-300 transition-colors"
+              className="px-3 py-2 border border-gray-200 hover:bg-gray-50 rounded-lg text-xs font-medium text-gray-600 transition-colors"
             >
               Disconnect
             </button>
@@ -204,61 +284,257 @@ function Dashboard() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-8 space-y-8">
-        {/* KPI Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
-          <StatCard
+      <main className="max-w-[1400px] mx-auto px-6 py-6 space-y-6">
+        {/* ─── Executive Summary Banner ─── */}
+        <div className="bg-gradient-to-r from-indigo-600 via-indigo-700 to-blue-700 rounded-2xl p-6 text-white shadow-lg shadow-indigo-200/40">
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <h2 className="text-lg font-bold">Executive Summary</h2>
+              <p className="text-indigo-200 text-sm mt-0.5">
+                Hiring pipeline at a glance
+              </p>
+            </div>
+            <span className="text-xs bg-white/20 px-3 py-1 rounded-full font-medium">
+              {totals.totalPositions} Total Positions
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2">
+            <div className="bg-white/10 backdrop-blur rounded-xl p-4">
+              <p className="text-indigo-200 text-xs font-medium">
+                Closure Rate
+              </p>
+              <p className="text-3xl font-bold mt-1">{totals.closureRate}%</p>
+              <p className="text-indigo-300 text-xs mt-1">
+                {totals.closed} of {totals.totalPositions} closed
+              </p>
+            </div>
+            <div className="bg-white/10 backdrop-blur rounded-xl p-4">
+              <p className="text-indigo-200 text-xs font-medium">
+                CV to Interview
+              </p>
+              <p className="text-3xl font-bold mt-1">{cvToInterviewRate}%</p>
+              <p className="text-indigo-300 text-xs mt-1">
+                {totals.totalInterviewed} of {totals.totalCVs} screened
+              </p>
+            </div>
+            <div className="bg-white/10 backdrop-blur rounded-xl p-4">
+              <p className="text-indigo-200 text-xs font-medium">
+                Interview to Offer
+              </p>
+              <p className="text-3xl font-bold mt-1">
+                {interviewToOfferRate}%
+              </p>
+              <p className="text-indigo-300 text-xs mt-1">
+                {totals.totalOffered} offers from {totals.totalInterviewed}{" "}
+                interviews
+              </p>
+            </div>
+            <div className="bg-white/10 backdrop-blur rounded-xl p-4">
+              <p className="text-indigo-200 text-xs font-medium">
+                Offer to Join
+              </p>
+              <p className="text-3xl font-bold mt-1">
+                {totals.offerToJoinRate}%
+              </p>
+              <p className="text-indigo-300 text-xs mt-1">
+                {totals.totalJoined} joined of {totals.totalOffered} offered
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 pt-4 border-t border-white/10 flex flex-wrap gap-x-6 gap-y-1 text-xs text-indigo-200">
+            <span>
+              Top Department:{" "}
+              <strong className="text-white">
+                {topDept?.department || "-"}
+              </strong>{" "}
+              ({topDept?.totalPositions || 0} positions)
+            </span>
+            <span>
+              Top Recruiter:{" "}
+              <strong className="text-white">
+                {topRecruiter?.name || "-"}
+              </strong>{" "}
+              ({topRecruiter?.closureRate || 0}% closure)
+            </span>
+            <span>
+              Budget:{" "}
+              <strong className="text-white">
+                {budgetSummary[0]?.count || 0} within
+              </strong>
+              ,{" "}
+              <strong className="text-amber-300">
+                {budgetSummary[1]?.count || 0} over
+              </strong>
+            </span>
+            <span>
+              Open roles:{" "}
+              <strong className="text-white">{totals.open}</strong> | On hold:{" "}
+              <strong className="text-amber-300">{totals.hold}</strong>
+            </span>
+          </div>
+        </div>
+
+        {/* ─── KPI Cards ─── */}
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+          <MetricCard
+            icon="📋"
             label="Total Positions"
             value={totals.totalPositions}
-            color="indigo"
+            accentColor="#4f46e5"
           />
-          <StatCard
+          <MetricCard
+            icon="✅"
             label="Closed"
             value={totals.closed}
             subtext={`${totals.closureRate}% closure`}
-            color="green"
+            accentColor="#059669"
+            trend="up"
           />
-          <StatCard
+          <MetricCard
+            icon="🔵"
             label="Open"
             value={totals.open}
-            color="blue"
+            accentColor="#2563eb"
+            trend={totals.open > 5 ? "up" : "neutral"}
           />
-          <StatCard
+          <MetricCard
+            icon="⏸"
             label="On Hold"
             value={totals.hold}
-            color="amber"
+            accentColor="#d97706"
+            trend={totals.hold > 3 ? "down" : "neutral"}
           />
-          <StatCard
+          <MetricCard
+            icon="📄"
             label="CVs Screened"
             value={totals.totalCVs}
-            color="purple"
+            accentColor="#7c3aed"
           />
-          <StatCard
+          <MetricCard
+            icon="🎙"
             label="Interviewed"
             value={totals.totalInterviewed}
-            color="cyan"
+            subtext={`${cvToInterviewRate}% of CVs`}
+            accentColor="#0891b2"
           />
-          <StatCard
+          <MetricCard
+            icon="📨"
             label="Offered"
             value={totals.totalOffered}
-            color="teal"
+            subtext={`${interviewToOfferRate}% of interviews`}
+            accentColor="#0284c7"
           />
-          <StatCard
+          <MetricCard
+            icon="🎉"
             label="Joined"
             value={totals.totalJoined}
-            subtext={`${totals.offerToJoinRate}% offer-to-join`}
-            color="rose"
+            subtext={`${totals.offerToJoinRate}% of offers`}
+            accentColor="#dc2626"
+            trend="up"
           />
         </div>
 
-        {/* Row: Position Status Pie + Monthly Trend */}
+        {/* ─── Recruitment Funnel ─── */}
+        <Section
+          title="Recruitment Funnel"
+          subtitle="Conversion at each stage of the hiring pipeline"
+        >
+          <div className="grid grid-cols-5 gap-4 mt-2">
+            {[
+              {
+                label: "CVs Screened",
+                value: totals.totalCVs,
+                color: "#4f46e5",
+                bg: "bg-indigo-50",
+              },
+              {
+                label: "Interviewed",
+                value: totals.totalInterviewed,
+                color: "#7c3aed",
+                bg: "bg-violet-50",
+              },
+              {
+                label: "Offered",
+                value: totals.totalOffered,
+                color: "#059669",
+                bg: "bg-emerald-50",
+              },
+              {
+                label: "Accepted",
+                value: totals.totalAccepted,
+                color: "#0891b2",
+                bg: "bg-cyan-50",
+              },
+              {
+                label: "Joined",
+                value: totals.totalJoined,
+                color: "#d97706",
+                bg: "bg-amber-50",
+              },
+            ].map((stage, i) => {
+              const maxVal = totals.totalCVs || 1;
+              const pct = Math.round((stage.value / maxVal) * 100);
+              const prevValue = i === 0 ? stage.value : [
+                totals.totalCVs,
+                totals.totalInterviewed,
+                totals.totalOffered,
+                totals.totalAccepted,
+              ][i - 1] || 1;
+              const dropoff =
+                i === 0
+                  ? null
+                  : prevValue
+                    ? Math.round((stage.value / prevValue) * 100)
+                    : 0;
+
+              return (
+                <div key={i} className="text-center relative">
+                  {/* Connector arrow */}
+                  {i > 0 && (
+                    <div className="absolute -left-2 top-1/2 -translate-y-1/2 -translate-x-full text-gray-300 text-lg hidden md:block">
+                      &rarr;
+                    </div>
+                  )}
+                  <div
+                    className={`${stage.bg} rounded-2xl p-4 flex flex-col items-center`}
+                  >
+                    <div className="relative w-full h-28 flex items-end justify-center mb-3">
+                      <div
+                        className="rounded-xl w-14 transition-all"
+                        style={{
+                          height: `${Math.max(pct, 8)}%`,
+                          backgroundColor: stage.color,
+                          opacity: 0.85,
+                        }}
+                      />
+                    </div>
+                    <p
+                      className="text-2xl font-bold"
+                      style={{ color: stage.color }}
+                    >
+                      {stage.value}
+                    </p>
+                    <p className="text-xs font-medium text-gray-600 mt-1">
+                      {stage.label}
+                    </p>
+                    {dropoff !== null && (
+                      <p className="text-[10px] text-gray-400 mt-1 font-medium">
+                        {dropoff}% conversion
+                      </p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Section>
+
+        {/* ─── Charts Row 1: Status + Monthly Trend ─── */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Position Status */}
-          <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
-            <h2 className="text-lg font-semibold mb-4">
-              Position Status Overview
-            </h2>
-            <ResponsiveContainer width="100%" height={300}>
+          <Section title="Position Status" subtitle="Current status distribution">
+            <ResponsiveContainer width="100%" height={280}>
               <PieChart>
                 <Pie
                   data={statusSummaries}
@@ -266,11 +542,13 @@ function Dashboard() {
                   nameKey="status"
                   cx="50%"
                   cy="50%"
-                  outerRadius={100}
+                  outerRadius={95}
                   innerRadius={55}
-                  paddingAngle={3}
+                  paddingAngle={4}
                   label={({ name, value }) => `${name}: ${value}`}
                   labelLine={false}
+                  strokeWidth={2}
+                  stroke="#fff"
                 >
                   {statusSummaries.map((entry, index) => (
                     <Cell
@@ -282,329 +560,373 @@ function Dashboard() {
                     />
                   ))}
                 </Pie>
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#1f2937",
-                    border: "1px solid #374151",
-                    borderRadius: "8px",
-                    color: "#fff",
-                  }}
-                />
+                <Tooltip contentStyle={TOOLTIP_STYLE} />
               </PieChart>
             </ResponsiveContainer>
-          </div>
+            {/* Status legend */}
+            <div className="flex justify-center gap-6 mt-2">
+              {statusSummaries.map((s, i) => (
+                <div key={i} className="flex items-center gap-2 text-xs">
+                  <div
+                    className="w-2.5 h-2.5 rounded-full"
+                    style={{
+                      backgroundColor:
+                        STATUS_COLORS[s.status] || COLORS[i % COLORS.length],
+                    }}
+                  />
+                  <span className="text-gray-600 font-medium">
+                    {s.status}
+                  </span>
+                  <span className="text-gray-400">{s.count}</span>
+                </div>
+              ))}
+            </div>
+          </Section>
 
-          {/* Monthly Hiring Trend */}
-          <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
-            <h2 className="text-lg font-semibold mb-4">
-              Monthly Hiring Trend
-            </h2>
+          <Section
+            title="Monthly Hiring Trend"
+            subtitle="Positions received vs closed over time"
+          >
             <ResponsiveContainer width="100%" height={300}>
               <AreaChart data={monthSummaries}>
                 <defs>
                   <linearGradient id="posGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                    <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.15} />
+                    <stop offset="95%" stopColor="#4f46e5" stopOpacity={0} />
                   </linearGradient>
-                  <linearGradient id="closedGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#34d399" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#34d399" stopOpacity={0} />
+                  <linearGradient
+                    id="closedGrad"
+                    x1="0"
+                    y1="0"
+                    x2="0"
+                    y2="1"
+                  >
+                    <stop offset="5%" stopColor="#059669" stopOpacity={0.15} />
+                    <stop offset="95%" stopColor="#059669" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-                <XAxis dataKey="month" stroke="#6b7280" fontSize={12} />
-                <YAxis stroke="#6b7280" fontSize={12} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#1f2937",
-                    border: "1px solid #374151",
-                    borderRadius: "8px",
-                    color: "#fff",
-                  }}
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis
+                  dataKey="month"
+                  stroke="#94a3b8"
+                  fontSize={12}
+                  tickLine={false}
                 />
-                <Legend />
+                <YAxis
+                  stroke="#94a3b8"
+                  fontSize={12}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <Tooltip contentStyle={TOOLTIP_STYLE} />
+                <Legend
+                  iconType="circle"
+                  iconSize={8}
+                  wrapperStyle={{ fontSize: "12px" }}
+                />
                 <Area
                   type="monotone"
                   dataKey="positions"
-                  name="Positions Received"
-                  stroke="#6366f1"
+                  name="Received"
+                  stroke="#4f46e5"
                   fill="url(#posGrad)"
-                  strokeWidth={2}
+                  strokeWidth={2.5}
                 />
                 <Area
                   type="monotone"
                   dataKey="closed"
                   name="Closed"
-                  stroke="#34d399"
+                  stroke="#059669"
                   fill="url(#closedGrad)"
-                  strokeWidth={2}
+                  strokeWidth={2.5}
                 />
                 <Area
                   type="monotone"
                   dataKey="joined"
                   name="Joined"
-                  stroke="#fbbf24"
+                  stroke="#d97706"
                   fill="transparent"
                   strokeWidth={2}
-                  strokeDasharray="5 5"
+                  strokeDasharray="6 3"
                 />
               </AreaChart>
             </ResponsiveContainer>
-          </div>
+          </Section>
         </div>
 
-        {/* Row: Department Breakdown + Hiring Source */}
+        {/* ─── Charts Row 2: Department + Sources ─── */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Department Breakdown */}
-          <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
-            <h2 className="text-lg font-semibold mb-4">
-              Department Breakdown
-            </h2>
+          <Section
+            title="Department Breakdown"
+            subtitle="Positions by department and status"
+          >
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={departmentSummaries}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+              <BarChart data={departmentSummaries} barGap={2}>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="#f1f5f9"
+                  vertical={false}
+                />
                 <XAxis
                   dataKey="department"
-                  stroke="#6b7280"
-                  fontSize={12}
+                  stroke="#94a3b8"
+                  fontSize={11}
+                  tickLine={false}
                 />
-                <YAxis stroke="#6b7280" fontSize={12} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#1f2937",
-                    border: "1px solid #374151",
-                    borderRadius: "8px",
-                    color: "#fff",
-                  }}
+                <YAxis
+                  stroke="#94a3b8"
+                  fontSize={11}
+                  tickLine={false}
+                  axisLine={false}
                 />
-                <Legend />
+                <Tooltip contentStyle={TOOLTIP_STYLE} />
+                <Legend
+                  iconType="circle"
+                  iconSize={8}
+                  wrapperStyle={{ fontSize: "12px" }}
+                />
                 <Bar
                   dataKey="totalPositions"
                   name="Total"
-                  fill="#6366f1"
-                  radius={[4, 4, 0, 0]}
+                  fill="#4f46e5"
+                  radius={[6, 6, 0, 0]}
                 />
                 <Bar
                   dataKey="closedPositions"
                   name="Closed"
-                  fill="#34d399"
-                  radius={[4, 4, 0, 0]}
+                  fill="#059669"
+                  radius={[6, 6, 0, 0]}
                 />
                 <Bar
                   dataKey="openPositions"
                   name="Open"
-                  fill="#60a5fa"
-                  radius={[4, 4, 0, 0]}
+                  fill="#2563eb"
+                  radius={[6, 6, 0, 0]}
                 />
                 <Bar
                   dataKey="holdPositions"
                   name="Hold"
-                  fill="#fbbf24"
-                  radius={[4, 4, 0, 0]}
+                  fill="#d97706"
+                  radius={[6, 6, 0, 0]}
                 />
               </BarChart>
             </ResponsiveContainer>
-          </div>
+          </Section>
 
-          {/* Hiring Sources */}
-          <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
-            <h2 className="text-lg font-semibold mb-4">Hiring Sources</h2>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={sourceSummaries}
-                  dataKey="count"
-                  nameKey="source"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={100}
-                  innerRadius={55}
-                  paddingAngle={3}
-                  label={({ name, value }) => `${name}: ${value}`}
-                  labelLine={false}
-                >
-                  {sourceSummaries.map((_, index) => (
-                    <Cell
-                      key={index}
-                      fill={COLORS[index % COLORS.length]}
+          <Section
+            title="Hiring Sources"
+            subtitle="Where candidates are coming from"
+          >
+            <div className="flex items-center gap-6">
+              <div className="flex-1">
+                <ResponsiveContainer width="100%" height={260}>
+                  <PieChart>
+                    <Pie
+                      data={sourceSummaries}
+                      dataKey="count"
+                      nameKey="source"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={90}
+                      innerRadius={50}
+                      paddingAngle={3}
+                      strokeWidth={2}
+                      stroke="#fff"
+                    >
+                      {sourceSummaries.map((_, index) => (
+                        <Cell
+                          key={index}
+                          fill={COLORS[index % COLORS.length]}
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip contentStyle={TOOLTIP_STYLE} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="space-y-2 min-w-[160px]">
+                {sourceSummaries.map((s, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <div
+                      className="w-3 h-3 rounded-sm flex-shrink-0"
+                      style={{
+                        backgroundColor: COLORS[i % COLORS.length],
+                      }}
                     />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#1f2937",
-                    border: "1px solid #374151",
-                    borderRadius: "8px",
-                    color: "#fff",
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
+                    <span className="text-xs text-gray-600 flex-1 truncate">
+                      {s.source}
+                    </span>
+                    <span className="text-xs font-semibold text-gray-900">
+                      {s.count}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Section>
         </div>
 
-        {/* Recruiter Performance */}
-        <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
-          <h2 className="text-lg font-semibold mb-4">
-            Recruiter Performance
-          </h2>
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={recruiterSummaries} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-              <XAxis type="number" stroke="#6b7280" fontSize={12} />
+        {/* ─── Recruiter Performance Chart ─── */}
+        <Section
+          title="Recruiter Performance"
+          subtitle="CVs screened, interviewed, offered and joined per recruiter"
+        >
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={recruiterSummaries} layout="vertical" barGap={2}>
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="#f1f5f9"
+                horizontal={false}
+              />
+              <XAxis
+                type="number"
+                stroke="#94a3b8"
+                fontSize={11}
+                tickLine={false}
+                axisLine={false}
+              />
               <YAxis
                 type="category"
                 dataKey="name"
-                stroke="#6b7280"
+                stroke="#94a3b8"
                 fontSize={12}
-                width={100}
+                width={90}
+                tickLine={false}
+                axisLine={false}
               />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "#1f2937",
-                  border: "1px solid #374151",
-                  borderRadius: "8px",
-                  color: "#fff",
-                }}
+              <Tooltip contentStyle={TOOLTIP_STYLE} />
+              <Legend
+                iconType="circle"
+                iconSize={8}
+                wrapperStyle={{ fontSize: "12px" }}
               />
-              <Legend />
               <Bar
                 dataKey="totalCVs"
-                name="CVs Screened"
-                fill="#6366f1"
-                radius={[0, 4, 4, 0]}
+                name="CVs"
+                fill="#4f46e5"
+                radius={[0, 6, 6, 0]}
               />
               <Bar
                 dataKey="totalInterviewed"
                 name="Interviewed"
-                fill="#8b5cf6"
-                radius={[0, 4, 4, 0]}
+                fill="#7c3aed"
+                radius={[0, 6, 6, 0]}
               />
               <Bar
                 dataKey="totalOffered"
                 name="Offered"
-                fill="#34d399"
-                radius={[0, 4, 4, 0]}
+                fill="#059669"
+                radius={[0, 6, 6, 0]}
               />
               <Bar
                 dataKey="totalJoined"
                 name="Joined"
-                fill="#fbbf24"
-                radius={[0, 4, 4, 0]}
+                fill="#d97706"
+                radius={[0, 6, 6, 0]}
               />
             </BarChart>
           </ResponsiveContainer>
-        </div>
+        </Section>
 
-        {/* Funnel / Pipeline */}
-        <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
-          <h2 className="text-lg font-semibold mb-4">
-            Recruitment Funnel
-          </h2>
-          <div className="grid grid-cols-5 gap-3">
-            {[
-              {
-                label: "CVs Screened",
-                value: totals.totalCVs,
-                color: "bg-indigo-500",
-              },
-              {
-                label: "Interviewed",
-                value: totals.totalInterviewed,
-                color: "bg-purple-500",
-              },
-              {
-                label: "Offered",
-                value: totals.totalOffered,
-                color: "bg-emerald-500",
-              },
-              {
-                label: "Accepted",
-                value: totals.totalAccepted,
-                color: "bg-blue-500",
-              },
-              {
-                label: "Joined",
-                value: totals.totalJoined,
-                color: "bg-amber-500",
-              },
-            ].map((stage, i) => {
-              const maxVal = totals.totalCVs || 1;
-              const pct = Math.round((stage.value / maxVal) * 100);
-              return (
-                <div key={i} className="text-center">
-                  <div className="relative h-40 flex items-end justify-center mb-2">
-                    <div
-                      className={`${stage.color} rounded-t-lg w-full max-w-[80px] transition-all`}
-                      style={{ height: `${Math.max(pct, 5)}%` }}
-                    />
-                  </div>
-                  <p className="text-2xl font-bold text-white">
-                    {stage.value}
-                  </p>
-                  <p className="text-gray-400 text-xs mt-1">{stage.label}</p>
-                  {i > 0 && (
-                    <p className="text-gray-600 text-xs">{pct}% of CVs</p>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Budget Overview */}
+        {/* ─── Budget + Closure Rate Row ─── */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
-            <h2 className="text-lg font-semibold mb-4">Budget Status</h2>
-            <div className="flex items-center gap-6">
-              {budgetSummary.map((b, i) => (
-                <div key={i} className="flex-1 text-center">
-                  <div
-                    className={`text-4xl font-bold ${i === 0 ? "text-emerald-400" : "text-amber-400"}`}
-                  >
-                    {b.count}
+          {/* Budget */}
+          <Section
+            title="Budget Status"
+            subtitle="Cost of hiring within vs over budget"
+          >
+            <div className="flex items-center gap-8 mt-4">
+              {budgetSummary.map((b, i) => {
+                const total =
+                  (budgetSummary[0]?.count || 0) +
+                  (budgetSummary[1]?.count || 0);
+                const pct = total
+                  ? Math.round((b.count / total) * 100)
+                  : 0;
+                return (
+                  <div key={i} className="flex-1">
+                    <div className="flex items-end gap-3 mb-2">
+                      <span
+                        className="text-4xl font-bold"
+                        style={{
+                          color: i === 0 ? "#059669" : "#d97706",
+                        }}
+                      >
+                        {b.count}
+                      </span>
+                      <span className="text-sm text-gray-400 pb-1">
+                        ({pct}%)
+                      </span>
+                    </div>
+                    <p className="text-sm font-medium text-gray-600">
+                      {b.label}
+                    </p>
+                    <div className="mt-2 w-full bg-gray-100 rounded-full h-2">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{
+                          width: `${pct}%`,
+                          backgroundColor:
+                            i === 0 ? "#059669" : "#d97706",
+                        }}
+                      />
+                    </div>
                   </div>
-                  <div className="text-gray-400 text-sm mt-1">{b.label}</div>
-                </div>
-              ))}
+                );
+              })}
             </div>
-          </div>
+          </Section>
 
-          {/* Recruiter Closure Rate */}
-          <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
-            <h2 className="text-lg font-semibold mb-4">
-              Recruiter Closure Rate
-            </h2>
-            <div className="space-y-3">
+          {/* Closure Rate */}
+          <Section
+            title="Recruiter Closure Rate"
+            subtitle="Percentage of positions closed by recruiter"
+          >
+            <div className="space-y-4 mt-2">
               {recruiterSummaries.map((r) => (
-                <div key={r.name} className="flex items-center gap-3">
-                  <span className="text-sm text-gray-300 w-24 truncate">
-                    {r.name}
-                  </span>
-                  <div className="flex-1 bg-gray-800 rounded-full h-4 overflow-hidden">
+                <div key={r.name}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-sm font-medium text-gray-700">
+                      {r.name}
+                    </span>
+                    <span className="text-sm font-bold text-gray-900">
+                      {r.closureRate}%
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
                     <div
-                      className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-emerald-500 transition-all"
-                      style={{ width: `${r.closureRate}%` }}
+                      className="h-full rounded-full transition-all"
+                      style={{
+                        width: `${r.closureRate}%`,
+                        background:
+                          r.closureRate >= 60
+                            ? "linear-gradient(90deg, #059669, #34d399)"
+                            : r.closureRate >= 40
+                              ? "linear-gradient(90deg, #d97706, #fbbf24)"
+                              : "linear-gradient(90deg, #dc2626, #f87171)",
+                      }}
                     />
                   </div>
-                  <span className="text-sm font-medium text-white w-12 text-right">
-                    {r.closureRate}%
-                  </span>
+                  <div className="flex gap-4 mt-1 text-[10px] text-gray-400">
+                    <span>{r.closedPositions} closed</span>
+                    <span>{r.openPositions} open</span>
+                    <span>{r.totalPositions} total</span>
+                  </div>
                 </div>
               ))}
             </div>
-          </div>
+          </Section>
         </div>
 
-        {/* Recruiter Detailed Table */}
-        <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
-          <h2 className="text-lg font-semibold mb-4">
-            Recruiter Detailed Breakdown
-          </h2>
-          <div className="overflow-x-auto">
+        {/* ─── Recruiter Table ─── */}
+        <Section
+          title="Recruiter Detailed Breakdown"
+          subtitle="Complete recruiter-wise metrics"
+        >
+          <div className="overflow-x-auto mt-2">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-800">
+                <tr className="border-b border-gray-200">
                   {[
                     "Recruiter",
                     "Positions",
@@ -619,7 +941,7 @@ function Dashboard() {
                   ].map((h) => (
                     <th
                       key={h}
-                      className="text-left py-3 px-3 text-gray-400 font-medium"
+                      className="text-left py-3 px-3 text-gray-500 font-semibold text-xs uppercase tracking-wider"
                     >
                       {h}
                     </th>
@@ -630,41 +952,41 @@ function Dashboard() {
                 {recruiterSummaries.map((r) => (
                   <tr
                     key={r.name}
-                    className="border-b border-gray-800/50 hover:bg-gray-800/30"
+                    className="border-b border-gray-50 hover:bg-indigo-50/30 transition-colors"
                   >
-                    <td className="py-3 px-3 font-medium text-white">
+                    <td className="py-3 px-3 font-semibold text-gray-900">
                       {r.name}
                     </td>
-                    <td className="py-3 px-3 text-gray-300">
+                    <td className="py-3 px-3 text-gray-700">
                       {r.totalPositions}
                     </td>
-                    <td className="py-3 px-3 text-emerald-400">
+                    <td className="py-3 px-3 text-emerald-600 font-medium">
                       {r.closedPositions}
                     </td>
-                    <td className="py-3 px-3 text-blue-400">
+                    <td className="py-3 px-3 text-blue-600 font-medium">
                       {r.openPositions}
                     </td>
-                    <td className="py-3 px-3 text-gray-300">{r.totalCVs}</td>
-                    <td className="py-3 px-3 text-gray-300">
+                    <td className="py-3 px-3 text-gray-700">{r.totalCVs}</td>
+                    <td className="py-3 px-3 text-gray-700">
                       {r.totalInterviewed}
                     </td>
-                    <td className="py-3 px-3 text-gray-300">
+                    <td className="py-3 px-3 text-gray-700">
                       {r.totalOffered}
                     </td>
-                    <td className="py-3 px-3 text-gray-300">
+                    <td className="py-3 px-3 text-gray-700">
                       {r.totalAccepted}
                     </td>
-                    <td className="py-3 px-3 text-gray-300">
+                    <td className="py-3 px-3 text-gray-700">
                       {r.totalJoined}
                     </td>
                     <td className="py-3 px-3">
                       <span
-                        className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
+                        className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold ${
                           r.closureRate >= 60
-                            ? "bg-emerald-500/20 text-emerald-400"
+                            ? "bg-emerald-50 text-emerald-700"
                             : r.closureRate >= 40
-                              ? "bg-amber-500/20 text-amber-400"
-                              : "bg-red-500/20 text-red-400"
+                              ? "bg-amber-50 text-amber-700"
+                              : "bg-red-50 text-red-700"
                         }`}
                       >
                         {r.closureRate}%
@@ -675,17 +997,17 @@ function Dashboard() {
               </tbody>
             </table>
           </div>
-        </div>
+        </Section>
 
-        {/* Full Position List */}
-        <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
-          <h2 className="text-lg font-semibold mb-4">
-            All Positions ({data.length})
-          </h2>
-          <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
+        {/* ─── All Positions Table ─── */}
+        <Section
+          title={`All Positions (${data.length})`}
+          subtitle="Complete position-wise tracker"
+        >
+          <div className="overflow-x-auto max-h-[500px] overflow-y-auto mt-2 rounded-lg border border-gray-100">
             <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-gray-900">
-                <tr className="border-b border-gray-800">
+              <thead className="sticky top-0 bg-gray-50 z-10">
+                <tr>
                   {[
                     "#",
                     "Position",
@@ -703,7 +1025,7 @@ function Dashboard() {
                   ].map((h) => (
                     <th
                       key={h}
-                      className="text-left py-3 px-2 text-gray-400 font-medium text-xs whitespace-nowrap"
+                      className="text-left py-3 px-3 text-gray-500 font-semibold text-[11px] uppercase tracking-wider whitespace-nowrap border-b border-gray-200"
                     >
                       {h}
                     </th>
@@ -714,57 +1036,59 @@ function Dashboard() {
                 {data.map((entry, i) => (
                   <tr
                     key={i}
-                    className="border-b border-gray-800/50 hover:bg-gray-800/30"
+                    className={`border-b border-gray-50 hover:bg-blue-50/30 transition-colors ${
+                      i % 2 === 0 ? "bg-white" : "bg-gray-50/40"
+                    }`}
                   >
-                    <td className="py-2 px-2 text-gray-500 text-xs">
+                    <td className="py-2.5 px-3 text-gray-400 text-xs">
                       {entry.srNo}
                     </td>
-                    <td className="py-2 px-2 text-white text-xs font-medium max-w-[150px] truncate">
+                    <td className="py-2.5 px-3 text-gray-900 text-xs font-medium max-w-[160px] truncate">
                       {entry.positionTitle}
                     </td>
-                    <td className="py-2 px-2 text-gray-300 text-xs">
+                    <td className="py-2.5 px-3 text-gray-600 text-xs">
                       {entry.department}
                     </td>
-                    <td className="py-2 px-2 text-gray-300 text-xs">
+                    <td className="py-2.5 px-3 text-gray-600 text-xs">
                       {entry.location}
                     </td>
-                    <td className="py-2 px-2 text-xs">
+                    <td className="py-2.5 px-3 text-xs">
                       <span
-                        className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
+                        className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold ${
                           entry.positionStatus.toLowerCase() === "closed"
-                            ? "bg-emerald-500/20 text-emerald-400"
+                            ? "bg-emerald-50 text-emerald-700"
                             : entry.positionStatus.toLowerCase() === "open"
-                              ? "bg-blue-500/20 text-blue-400"
+                              ? "bg-blue-50 text-blue-700"
                               : entry.positionStatus.toLowerCase() === "hold"
-                                ? "bg-amber-500/20 text-amber-400"
-                                : "bg-gray-500/20 text-gray-400"
+                                ? "bg-amber-50 text-amber-700"
+                                : "bg-gray-100 text-gray-500"
                         }`}
                       >
                         {entry.positionStatus}
                       </span>
                     </td>
-                    <td className="py-2 px-2 text-gray-300 text-xs max-w-[120px] truncate">
-                      {entry.candidateSelected || "-"}
+                    <td className="py-2.5 px-3 text-gray-600 text-xs max-w-[120px] truncate">
+                      {entry.candidateSelected || "—"}
                     </td>
-                    <td className="py-2 px-2 text-gray-300 text-xs">
+                    <td className="py-2.5 px-3 text-gray-600 text-xs">
                       {entry.recruiterName}
                     </td>
-                    <td className="py-2 px-2 text-gray-300 text-xs text-center">
-                      {entry.totalCVs}
+                    <td className="py-2.5 px-3 text-gray-700 text-xs text-center font-medium">
+                      {entry.totalCVs || "—"}
                     </td>
-                    <td className="py-2 px-2 text-gray-300 text-xs text-center">
-                      {entry.totalInterviewed}
+                    <td className="py-2.5 px-3 text-gray-700 text-xs text-center font-medium">
+                      {entry.totalInterviewed || "—"}
                     </td>
-                    <td className="py-2 px-2 text-gray-300 text-xs text-center">
-                      {entry.totalOffered}
+                    <td className="py-2.5 px-3 text-gray-700 text-xs text-center font-medium">
+                      {entry.totalOffered || "—"}
                     </td>
-                    <td className="py-2 px-2 text-gray-300 text-xs text-center">
-                      {entry.totalJoined}
+                    <td className="py-2.5 px-3 text-gray-700 text-xs text-center font-medium">
+                      {entry.totalJoined || "—"}
                     </td>
-                    <td className="py-2 px-2 text-gray-400 text-xs">
-                      {entry.source || "-"}
+                    <td className="py-2.5 px-3 text-gray-500 text-xs">
+                      {entry.source || "—"}
                     </td>
-                    <td className="py-2 px-2 text-gray-400 text-xs">
+                    <td className="py-2.5 px-3 text-gray-500 text-xs">
                       {entry.hiringManager}
                     </td>
                   </tr>
@@ -772,6 +1096,13 @@ function Dashboard() {
               </tbody>
             </table>
           </div>
+        </Section>
+
+        {/* Footer */}
+        <div className="text-center py-6">
+          <p className="text-xs text-gray-400">
+            HR Recruitment Dashboard &middot; Data synced from Google Sheets
+          </p>
         </div>
       </main>
     </div>
